@@ -1,20 +1,34 @@
 use std::io;
-use std::option::Option;
-use std::path::{PathBuf, Path};
 
 #[macro_use] extern crate rocket;
-use rocket::fs::{NamedFile, relative};
+use rocket::fs::{FileServer, relative};
+use rocket::serde::json::{Json};
+use rocket::serde::{Serialize, Deserialize};
 use rocket::tokio::time::{sleep, Duration};
 use rocket::tokio::task::spawn_blocking;
 
-#[get("/<path>")]
-async fn index(path: String) -> Option<NamedFile> {
-    let mut path: PathBuf = Path::new(relative!("static")).join(path);
-    if path.is_dir() {
-        path.push("index.html");
-    }
+#[derive(Serialize, Deserialize)]
+#[serde(crate = "rocket::serde")]
+struct Location { name: String, description: String }
 
-    NamedFile::open(path).await.ok()
+#[derive(Serialize, Deserialize)]
+#[serde(crate = "rocket::serde")]
+struct LocationList { seq: Vec<Location> }
+
+#[get("/locations", format = "json")]
+fn locations() -> Json<LocationList> {
+    let locations = LocationList{
+        seq: vec![
+        Location {
+            name: "São Paulo - Pinheiros".into(),
+            description: "Nice bars".into(),
+        },
+        Location {
+            name: "São Paulo - Liberdade".into(),
+            description: "Nice restaurants".into(),
+        }
+    ]};
+    Json(locations);
 }
 
 #[get("/world")]
@@ -37,24 +51,9 @@ async fn blocking_task() -> io::Result<Vec<u8>> {
     Ok(vec)
 }
 
-// #[derive(Deserialize)]
-// struct Task { name: String, completed: bool }
-
-// #[post("/", data = "<task>")]
-// fn new(task: Json<Task>) -> Flash<Redirect> {
-//     if task.name.is_empty() {
-//         Flash::error(Redirect::to("/"),
-//             "Cannot be empty.")
-//     } else {
-//         Flash::success(Redirect::to("/"),
-//             "Task added.")
-//     }
-// }
-
-
 #[launch]
 fn rocket() -> _ {
     rocket::build()
-        .mount("/", routes![index])
-        .mount("/hello", routes![hello_world, delay, blocking_task])
+        .mount("/", FileServer::from(relative!("static")))
+        .mount("/api", routes![hello_world, delay, blocking_task, locations])
 }
