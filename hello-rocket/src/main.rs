@@ -7,7 +7,7 @@ use rocket::tokio::task::spawn_blocking;
 use rocket::tokio::time::{sleep, Duration};
 
 mod api {
-    use rocket::serde::json::{Json};
+    use rocket::serde::json::Json;
     use rocket::serde::{Deserialize, Serialize};
 
     #[derive(Serialize, Deserialize)]
@@ -56,10 +56,25 @@ async fn blocking_task() -> io::Result<Vec<u8>> {
     Ok(vec)
 }
 
+mod static_files {
+    use rocket::response::content;
+    use rocket::Request;
+
+    #[catch(404)]
+    pub fn not_found(req: &Request<'_>) -> content::RawHtml<String> {
+        content::RawHtml(format!(
+            r#"<p>Sorry, but we could not find '{}'</p>
+            <a href="/">Take me home</a>"#,
+            req.uri()
+        ))
+    }
+}
+
 #[launch]
 fn rocket() -> _ {
     rocket::build()
         .mount("/", FileServer::from(relative!("static")))
+        .register("/", catchers![static_files::not_found])
         .mount(
             "/api",
             routes![hello_world, delay, blocking_task, api::locations],
