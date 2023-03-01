@@ -1,4 +1,4 @@
-use std::io;
+use std::io::{self, Result};
 
 #[macro_use]
 extern crate rocket;
@@ -6,34 +6,9 @@ use rocket::fs::{relative, FileServer};
 use rocket::tokio::task::spawn_blocking;
 use rocket::tokio::time::{sleep, Duration};
 
-mod api {
-    use rocket::serde::json::Json;
-    use rocket::serde::{Deserialize, Serialize};
+use crate::api::locations;
 
-    #[derive(Serialize, Deserialize)]
-    #[serde(crate = "rocket::serde")]
-    pub struct Location {
-        name: String,
-        description: String,
-    }
-
-    pub type LocationList = Vec<Location>;
-
-    #[get("/locations", format = "json")]
-    pub fn locations() -> Json<LocationList> {
-        let locations: LocationList = vec![
-            Location {
-                name: "São Paulo - Pinheiros".into(),
-                description: "Nice bars".into(),
-            },
-            Location {
-                name: "São Paulo - Liberdade".into(),
-                description: "Nice restaurants".into(),
-            },
-        ];
-        return Json(locations);
-    }
-}
+mod api;
 
 #[get("/world")]
 fn hello_world() -> &'static str {
@@ -41,9 +16,9 @@ fn hello_world() -> &'static str {
 }
 
 #[get("/delay/<seconds>")]
-async fn delay(seconds: u64) -> String {
+async fn delay(seconds: u64) -> Result<String> {
     sleep(Duration::from_secs(seconds)).await;
-    format!("Waited for {} seconds", seconds)
+    return Ok(format!("Waited for {} seconds", seconds))
 }
 
 #[get("/blocking_task")]
@@ -77,6 +52,6 @@ fn rocket() -> _ {
         .register("/", catchers![static_files::not_found])
         .mount(
             "/api",
-            routes![hello_world, delay, blocking_task, api::locations],
+            routes![hello_world, delay, blocking_task, locations],
         )
 }
